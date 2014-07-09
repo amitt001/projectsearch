@@ -1,0 +1,52 @@
+from scrapy.contrib.spiders import CrawlSpider, Rule
+from scrapy.contrib.linkextractors.sgml import SgmlLinkExtractor
+
+from scrapy.selector import Selector
+
+from dirbot.items import Website
+
+
+class DmozSpider(CrawlSpider):
+    name = "dmoz"
+    allowed_domains = ["stackoverflow.com"]
+    start_urls = [
+        "http://stackoverflow.com/questions"
+    ]
+
+    rules = (Rule (SgmlLinkExtractor(allow=("/question"),restrict_xpaths=('//div[@class="summary"]')), callback="parse_items", follow= True),)
+
+
+    def parse_items(self, response):
+        CONCURRENT_REQUESTS = 100
+        LOG_LEVEL = 'INFO'
+        COOKIES_ENABLED = False
+        RETRY_ENABLED = False
+        DOWNLOAD_TIMEOUT = 15
+        REDIRECT_ENABLED = False
+        AJAXCRAWL_ENABLED = True
+        sel = Selector(response)
+        sites = sel.xpath('//div[@class="summary"]')
+        items = []
+        for site in sites:
+#question link            
+            item_link = Website()
+            item_link['url'] = site.xpath('//h3/a/@href').extract()
+            items.append(item_link)
+#question text
+            item_txt = Website()
+            item_txt = site.xpath('//h3/a/@href/text()').extract()  
+            items.append(item_txt)
+#question excerpt
+            item_ex = Website()
+            item_ex['ex'] = site.xpath('//div[@class="excerpt"]/text()').extract()
+            items.append(item_ex)
+#question tags
+            item_tag = Website()
+            tags = sel.xpath('//div[@class="tags*"]')
+            for t in tags:
+                item_tag['tag'] = site.xpath('//a/@href/text()').extract()
+                items.append(item_tag)
+#to specify 1 question has ended
+            items.append('--end--')
+        return items
+ 
